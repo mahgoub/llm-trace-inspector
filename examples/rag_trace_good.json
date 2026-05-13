@@ -1,0 +1,28 @@
+{
+  "trace_id": "rag-good-001",
+  "user_query": "What does the Acme Vector Cache do and when should teams use it?",
+  "retrieved_context": [
+    {
+      "id": "chunk-1",
+      "source": "docs/vector-cache.md",
+      "text": "Acme Vector Cache stores embeddings and retrieval results for repeated semantic search queries. It reduces latency for high-volume RAG applications by avoiding duplicate vector database calls."
+    },
+    {
+      "id": "chunk-2",
+      "source": "docs/ops.md",
+      "text": "Teams should use Acme Vector Cache when their application receives repeated or similar queries, when vector database latency dominates response time, or when retrieval cost needs to be controlled."
+    },
+    {
+      "id": "chunk-3",
+      "source": "docs/security.md",
+      "text": "Cache entries can be scoped by tenant and expired with configurable TTL policies."
+    }
+  ],
+  "llm_answer": "Acme Vector Cache stores embeddings and retrieval results for repeated semantic search queries, reducing latency by avoiding duplicate vector database calls [chunk-1]. Teams should use it when they see repeated or similar queries, vector database latency dominates response time, or retrieval cost needs tighter control [chunk-2].",
+  "reference_answer": "Acme Vector Cache stores embeddings and retrieval results for repeated semantic search queries. It is useful when repeated queries, vector database latency, or retrieval cost are concerns.",
+  "metadata": {
+    "app": "docs-assistant",
+    "model": "example-model"
+  }
+}
+

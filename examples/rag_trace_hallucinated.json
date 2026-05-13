@@ -1,0 +1,23 @@
+{
+  "trace_id": "rag-risk-001",
+  "user_query": "Does Acme Vector Cache support cross-region replication and SOC 2 audit exports?",
+  "retrieved_context": [
+    {
+      "id": "chunk-1",
+      "source": "docs/vector-cache.md",
+      "text": "Acme Vector Cache stores embeddings and retrieval results for repeated semantic search queries. Cache entries can be scoped by tenant and expired with configurable TTL policies."
+    },
+    {
+      "id": "chunk-2",
+      "source": "docs/ops.md",
+      "text": "The operations guide describes cache warming, TTL configuration, and dashboard alerts for hit rate and eviction rate."
+    }
+  ],
+  "llm_answer": "Yes. Acme Vector Cache supports active-active cross-region replication with automatic failover. It also includes one-click SOC 2 audit exports and HIPAA compliance reports.",
+  "reference_answer": "The provided context does not state that Acme Vector Cache supports cross-region replication, SOC 2 audit exports, or HIPAA compliance reports.",
+  "metadata": {
+    "app": "docs-assistant",
+    "model": "example-model"
+  }
+}
+
