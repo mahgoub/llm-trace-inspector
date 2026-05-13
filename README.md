@@ -151,22 +151,7 @@ It reports whether each claim is correctly cited, uncited, weakly cited, or citi
 
 ## Architecture
 
-```mermaid
-flowchart TD
-    A[Trace JSON] --> B[Pydantic Trace Model]
-    B --> C[Deterministic Evaluator]
-    C --> D[Claim Support Scoring]
-    C --> E[Chunk Relevance Ranking]
-    C --> F[Reference Fact Coverage]
-    B --> G[Optional LLM Judge]
-    D --> H[Evaluation Result]
-    E --> H
-    F --> H
-    G --> H
-    H --> I[CLI]
-    H --> J[FastAPI]
-    H --> K[Streamlit UI]
-```
+![LLM Trace Evaluation System Architecture](docs/architecture.png)
 
 ## Folder Structure
 
