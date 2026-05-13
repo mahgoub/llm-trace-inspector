@@ -1,6 +1,10 @@
-name: LLM Trace Inspector
+name: LLM Trace Inspector RAG Eval
 description: Evaluate RAG and agent trace JSON files in GitHub Actions.
 author: mahgoub soliman
+
+branding:
+  icon: activity
+  color: purple
 
 inputs:
   traces:

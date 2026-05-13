@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1
+
+- Add GitHub Marketplace branding metadata.
+- Rename the Action for clearer Marketplace discovery.
+- Remove workflow files to satisfy GitHub Marketplace Action listing requirements.
+
 ## 0.3.0
 
 - Add trace JSON Schema and `validate` command.
@@ -17,4 +23,3 @@
 ## 0.1.0
 
 - Initial FastAPI, CLI, Streamlit, examples, tests, and deterministic evaluator.
-
