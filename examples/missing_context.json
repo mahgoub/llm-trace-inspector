@@ -1,0 +1,19 @@
+{
+  "trace_id": "rag-missing-context-001",
+  "user_query": "What is the retention period for Acme audit logs?",
+  "retrieved_context": [
+    {
+      "id": "chunk-1",
+      "source": "docs/security.md",
+      "text": "Acme Vector Cache supports tenant-scoped cache entries and configurable TTL policies for cached retrieval results."
+    },
+    {
+      "id": "chunk-2",
+      "source": "docs/alerts.md",
+      "text": "Dashboard alerts can be configured for cache hit rate, eviction rate, and vector database latency."
+    }
+  ],
+  "llm_answer": "Acme audit logs are retained for 30 days.",
+  "reference_answer": "Acme audit logs are retained for 365 days in the enterprise plan."
+}
+

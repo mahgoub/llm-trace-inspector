@@ -20,3 +20,19 @@ def test_hallucinated_trace_flags_unsupported_claims() -> None:
     assert result.unsupported_claims
     assert result.groundedness_score < 0.6
 
+
+def test_bad_citations_are_flagged() -> None:
+    trace = load_trace("examples/bad_citations.json")
+    result = TraceEvaluator().evaluate(trace)
+
+    assert "citation_mismatch" in result.failure_modes
+    assert result.citation_issues
+    assert result.claim_assessments[0].citation_status == "mismatch"
+
+
+def test_partial_answer_has_score_explanations() -> None:
+    trace = load_trace("examples/partially_grounded_answer.json")
+    result = TraceEvaluator().evaluate(trace)
+
+    assert result.score_explanations["hallucination_risk"]
+    assert "unsupported_claim" in result.failure_modes

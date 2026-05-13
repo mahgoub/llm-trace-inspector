@@ -36,6 +36,13 @@ cols[3].metric("Support coverage", f"{result.citation_support_coverage:.2f}")
 st.subheader("Diagnostic Report")
 st.write(result.diagnostic_report)
 
+if result.failure_modes:
+    st.subheader("Failure Modes")
+    st.write(", ".join(result.failure_modes))
+
+st.subheader("Score Explanations")
+st.json(result.score_explanations)
+
 left, right = st.columns(2)
 with left:
     st.subheader("Unsupported Claims")
@@ -53,9 +60,16 @@ with right:
     else:
         st.success("No reference facts appear missing from retrieved context.")
 
+st.subheader("Claim-Level Support")
+st.dataframe([row.model_dump() for row in result.claim_assessments], use_container_width=True)
+
+if result.citation_issues:
+    st.subheader("Citation Issues")
+    for issue in result.citation_issues:
+        st.warning(issue)
+
 st.subheader("Chunk Usefulness Ranking")
 st.dataframe([row.model_dump() for row in result.chunk_rankings], use_container_width=True)
 
 with st.expander("Input trace"):
     st.json(trace.model_dump())
-

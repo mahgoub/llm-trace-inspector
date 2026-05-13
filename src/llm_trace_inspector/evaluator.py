@@ -7,6 +7,7 @@ from typing import Any
 
 import httpx
 
+from llm_trace_inspector.citations import resolve_citations
 from llm_trace_inspector.models import (
     ChunkAssessment,
     ClaimAssessment,
@@ -22,6 +23,7 @@ class EvaluatorConfig:
     judge_model: str = "gpt-4o-mini"
     api_key: str | None = None
     api_base: str = "https://api.openai.com/v1"
+    judge_provider: str = "openai-compatible"
     support_threshold: float = 0.46
 
 
@@ -59,7 +61,21 @@ class TraceEvaluator:
         relevance = self._relevance_score(trace)
         citation_coverage = self._citation_support_coverage(trace, claim_assessments)
         missing_facts = self._missing_facts(trace, chunks_text)
-        hallucination_risk = clamp((1.0 - groundedness) * 0.65 + (1.0 - citation_coverage) * 0.2 + len(missing_facts) * 0.05)
+        citation_issues = self._citation_issues(claim_assessments)
+        failure_modes = self._failure_modes(
+            trace=trace,
+            groundedness=groundedness,
+            relevance=relevance,
+            citation_coverage=citation_coverage,
+            missing_facts=missing_facts,
+            citation_issues=citation_issues,
+        )
+        hallucination_risk = clamp(
+            (1.0 - groundedness) * 0.6
+            + (1.0 - citation_coverage) * 0.18
+            + min(len(missing_facts), 4) * 0.05
+            + min(len(citation_issues), 4) * 0.03
+        )
         chunk_rankings = self._rank_chunks(trace, claim_assessments)
 
         result = EvaluationResult(
@@ -70,6 +86,18 @@ class TraceEvaluator:
             citation_support_coverage=round(citation_coverage, 3),
             unsupported_claims=unsupported_claims,
             missing_facts_from_context=missing_facts,
+            claim_assessments=claim_assessments,
+            failure_modes=failure_modes,
+            citation_issues=citation_issues,
+            score_explanations=self._score_explanations(
+                groundedness=groundedness,
+                relevance=relevance,
+                citation_coverage=citation_coverage,
+                hallucination_risk=hallucination_risk,
+                unsupported_claims=unsupported_claims,
+                missing_facts=missing_facts,
+                citation_issues=citation_issues,
+            ),
             chunk_rankings=chunk_rankings,
             diagnostic_report="",
             judge_mode="deterministic",
@@ -79,16 +107,28 @@ class TraceEvaluator:
     def _assess_claim(self, claim: str, trace: Trace) -> ClaimAssessment:
         best_chunk_id = None
         best_score = 0.0
+        cited_chunk_ids = resolve_citations(claim, trace.retrieved_context)
         for chunk in trace.retrieved_context:
             score = max(lexical_overlap(claim, chunk.text), cosine_similarity(claim, chunk.text))
             if score > best_score:
                 best_score = score
                 best_chunk_id = chunk.id
+        supported = best_score >= self.config.support_threshold
+        citation_status = self._citation_status(
+            supported=supported,
+            best_chunk_id=best_chunk_id,
+            cited_chunk_ids=cited_chunk_ids,
+        )
+        issue_type = self._claim_issue_type(supported, citation_status)
         return ClaimAssessment(
             claim=claim,
-            supported=best_score >= self.config.support_threshold,
+            supported=supported,
             best_chunk_id=best_chunk_id,
             support_score=round(clamp(best_score), 3),
+            cited_chunk_ids=cited_chunk_ids,
+            citation_status=citation_status,
+            issue_type=issue_type,
+            explanation=self._claim_explanation(claim, supported, best_chunk_id, best_score, citation_status),
         )
 
     def _relevance_score(self, trace: Trace) -> float:
@@ -102,9 +142,7 @@ class TraceEvaluator:
             return 0.0
         covered = 0
         for assessment in claims:
-            if assessment.best_chunk_id and f"[{assessment.best_chunk_id}]" in assessment.claim:
-                covered += 1
-            elif assessment.supported and assessment.best_chunk_id and f"[{assessment.best_chunk_id}]" in trace.llm_answer:
+            if assessment.supported and assessment.citation_status == "correct":
                 covered += 1
         return covered / len(claims)
 
@@ -135,6 +173,107 @@ class TraceEvaluator:
             )
         return sorted(rankings, key=lambda item: (item.usefulness_score, item.relevance_score), reverse=True)
 
+    def _citation_status(
+        self,
+        supported: bool,
+        best_chunk_id: str | None,
+        cited_chunk_ids: list[str],
+    ) -> str:
+        if not cited_chunk_ids:
+            return "uncited"
+        if best_chunk_id and best_chunk_id in cited_chunk_ids and supported:
+            return "correct"
+        if best_chunk_id and best_chunk_id in cited_chunk_ids:
+            return "cited_but_weak"
+        return "mismatch"
+
+    def _claim_issue_type(self, supported: bool, citation_status: str) -> str | None:
+        if not supported and citation_status == "uncited":
+            return "unsupported_claim"
+        if not supported:
+            return "citation_mismatch"
+        if citation_status == "mismatch":
+            return "citation_mismatch"
+        if citation_status == "uncited":
+            return "uncited_supported_claim"
+        return None
+
+    def _claim_explanation(
+        self,
+        claim: str,
+        supported: bool,
+        best_chunk_id: str | None,
+        score: float,
+        citation_status: str,
+    ) -> str:
+        support_text = "supported" if supported else "not strongly supported"
+        chunk_text = f"best matching chunk is {best_chunk_id}" if best_chunk_id else "no matching chunk was found"
+        return (
+            f"Claim is {support_text}; {chunk_text} with support score "
+            f"{clamp(score):.2f}. Citation status: {citation_status}."
+        )
+
+    def _citation_issues(self, claims: list[ClaimAssessment]) -> list[str]:
+        issues = []
+        for assessment in claims:
+            if assessment.citation_status in {"mismatch", "cited_but_weak"}:
+                cited = ", ".join(assessment.cited_chunk_ids) or "none"
+                issues.append(
+                    f"Claim cites {cited} but best support is {assessment.best_chunk_id}: {assessment.claim}"
+                )
+            elif assessment.supported and assessment.citation_status == "uncited":
+                issues.append(f"Supported claim has no citation: {assessment.claim}")
+        return issues
+
+    def _failure_modes(
+        self,
+        trace: Trace,
+        groundedness: float,
+        relevance: float,
+        citation_coverage: float,
+        missing_facts: list[str],
+        citation_issues: list[str],
+    ) -> list[str]:
+        modes = []
+        if groundedness < 0.75:
+            modes.append("unsupported_claim")
+        if missing_facts:
+            modes.append("missing_retrieval")
+        if relevance < 0.2 and trace.retrieved_context:
+            modes.append("irrelevant_retrieval")
+        if citation_coverage < 0.75 or citation_issues:
+            modes.append("citation_mismatch")
+        if trace.reference_answer and lexical_overlap(trace.llm_answer, trace.reference_answer) < 0.35:
+            modes.append("answer_drift")
+        if "cannot" in trace.llm_answer.lower() and trace.retrieved_context and relevance >= 0.25:
+            modes.append("overconfident_refusal")
+        return list(dict.fromkeys(modes))
+
+    def _score_explanations(
+        self,
+        groundedness: float,
+        relevance: float,
+        citation_coverage: float,
+        hallucination_risk: float,
+        unsupported_claims: list[str],
+        missing_facts: list[str],
+        citation_issues: list[str],
+    ) -> dict[str, str]:
+        return {
+            "groundedness": (
+                f"{groundedness:.2f} because {len(unsupported_claims)} claim(s) were not strongly supported "
+                "by retrieved chunks."
+            ),
+            "hallucination_risk": (
+                f"{hallucination_risk:.2f} based on unsupported claims, citation gaps, "
+                f"{len(missing_facts)} missing fact(s), and {len(citation_issues)} citation issue(s)."
+            ),
+            "relevance": f"{relevance:.2f} average lexical/term similarity between query and retrieved chunks.",
+            "citation_support_coverage": (
+                f"{citation_coverage:.2f} of answer claims were both supported and cited to the best chunk."
+            ),
+        }
+
     def _report(self, trace: Trace, result: EvaluationResult) -> str:
         risk = "high" if result.hallucination_risk_score >= 0.6 else "medium" if result.hallucination_risk_score >= 0.3 else "low"
         top_chunk = result.chunk_rankings[0].chunk_id if result.chunk_rankings else "none"
@@ -156,6 +295,7 @@ class TraceEvaluator:
 
         prompt = {
             "task": "Audit this RAG trace. Return compact JSON with notes and any severe_disagreements.",
+            "provider": self.config.judge_provider,
             "trace": trace.model_dump(),
             "deterministic_result": deterministic.model_dump(),
         }
@@ -179,4 +319,3 @@ class TraceEvaluator:
             return json.loads(content)
         except Exception as exc:
             return {"notes": f"LLM judge unavailable, deterministic result used. Error: {exc}"}
-

@@ -34,6 +34,10 @@ class ClaimAssessment(BaseModel):
     supported: bool
     best_chunk_id: str | None = None
     support_score: float = Field(ge=0.0, le=1.0)
+    cited_chunk_ids: list[str] = Field(default_factory=list)
+    citation_status: str = Field(default="uncited")
+    issue_type: str | None = None
+    explanation: str = ""
 
 
 class ChunkAssessment(BaseModel):
@@ -52,8 +56,19 @@ class EvaluationResult(BaseModel):
     citation_support_coverage: float = Field(ge=0.0, le=1.0)
     unsupported_claims: list[str]
     missing_facts_from_context: list[str]
+    claim_assessments: list[ClaimAssessment] = Field(default_factory=list)
+    failure_modes: list[str] = Field(default_factory=list)
+    citation_issues: list[str] = Field(default_factory=list)
+    score_explanations: dict[str, str] = Field(default_factory=dict)
     chunk_rankings: list[ChunkAssessment]
     diagnostic_report: str
     judge_mode: str = Field(description="deterministic, llm, or hybrid")
     raw_judge: dict[str, Any] | None = None
 
+
+class BatchSummary(BaseModel):
+    trace_count: int
+    average_groundedness: float = Field(ge=0.0, le=1.0)
+    average_hallucination_risk: float = Field(ge=0.0, le=1.0)
+    average_relevance: float = Field(ge=0.0, le=1.0)
+    failed_trace_ids: list[str] = Field(default_factory=list)

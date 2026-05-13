@@ -1,0 +1,19 @@
+{
+  "trace_id": "rag-irrelevant-001",
+  "user_query": "How do I rotate the Acme API signing key?",
+  "retrieved_context": [
+    {
+      "id": "chunk-1",
+      "source": "docs/billing.md",
+      "text": "Invoices are generated on the first day of each month. Billing admins can download invoices from the account settings page."
+    },
+    {
+      "id": "chunk-2",
+      "source": "docs/vector-cache.md",
+      "text": "Acme Vector Cache stores embeddings and retrieval results for repeated semantic search queries."
+    }
+  ],
+  "llm_answer": "Rotate the API signing key from the security settings page and deploy the new key to all services.",
+  "reference_answer": "API signing keys can be rotated from Security Settings by creating a new key, deploying it, and revoking the old key."
+}
+

@@ -1,0 +1,19 @@
+{
+  "trace_id": "rag-bad-citations-001",
+  "user_query": "Which cache metrics should I monitor?",
+  "retrieved_context": [
+    {
+      "id": "chunk-1",
+      "source": "docs/ops.md",
+      "text": "Teams should monitor cache hit rate, eviction rate, vector database latency, and retrieval cost."
+    },
+    {
+      "id": "chunk-2",
+      "source": "docs/security.md",
+      "text": "Cache entries can be scoped by tenant and expired with configurable TTL policies."
+    }
+  ],
+  "llm_answer": "You should monitor cache hit rate, eviction rate, vector database latency, and retrieval cost [chunk-2].",
+  "reference_answer": "Teams should monitor cache hit rate, eviction rate, vector database latency, and retrieval cost."
+}
+

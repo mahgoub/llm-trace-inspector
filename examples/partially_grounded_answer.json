@@ -1,0 +1,19 @@
+{
+  "trace_id": "rag-partial-001",
+  "user_query": "How does Acme Vector Cache reduce latency and what compliance reports does it provide?",
+  "retrieved_context": [
+    {
+      "id": "chunk-1",
+      "source": "docs/vector-cache.md",
+      "text": "Acme Vector Cache reduces latency by avoiding duplicate vector database calls for repeated semantic search queries."
+    },
+    {
+      "id": "chunk-2",
+      "source": "docs/security.md",
+      "text": "Cache entries can be scoped by tenant and expired with configurable TTL policies."
+    }
+  ],
+  "llm_answer": "Acme Vector Cache reduces latency by avoiding duplicate vector database calls [chunk-1]. It also provides downloadable SOC 2 and HIPAA compliance reports.",
+  "reference_answer": "Acme Vector Cache reduces latency by avoiding duplicate vector database calls. The provided context does not describe downloadable compliance reports."
+}
+

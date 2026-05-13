@@ -28,7 +28,7 @@ LLM apps fail in ways normal logs do not explain. A model can answer fluently wh
 ## Installation
 
 ```bash
-git clone https://github.com/mahgoubsoliman/llm-trace-inspector.git
+git clone https://github.com/mahgoub/llm-trace-inspector.git
 cd llm-trace-inspector
 python -m venv .venv
 source .venv/bin/activate
@@ -40,6 +40,9 @@ pip install -e ".[dev]"
 ```bash
 llm-trace-inspector eval examples/rag_trace_good.json
 llm-trace-inspector eval examples/rag_trace_hallucinated.json --output result.json
+llm-trace-inspector eval examples/rag_trace_hallucinated.json --max-risk 0.4
+llm-trace-inspector eval examples/rag_trace_good.json --html report.html
+llm-trace-inspector eval-dir examples/ --output-dir reports --max-risk 0.6
 ```
 
 Optional LLM judge:
@@ -47,7 +50,28 @@ Optional LLM judge:
 ```bash
 export OPENAI_API_KEY=...
 llm-trace-inspector eval examples/rag_trace_good.json --llm-judge
+llm-trace-inspector eval examples/rag_trace_good.json \
+  --llm-judge \
+  --judge-model gpt-4o-mini \
+  --judge-api-base https://api.openai.com/v1
 ```
+
+## CI Thresholds
+
+Use LLM Trace Inspector as a regression gate for RAG traces:
+
+```yaml
+- name: Evaluate RAG traces
+  run: |
+    llm-trace-inspector eval-dir examples/ --output-dir reports --max-risk 0.45
+```
+
+The command exits non-zero when any trace exceeds `--max-risk`, while still writing:
+
+- `summary.json`
+- `results.jsonl`
+- `results.csv`
+- `report.html`
 
 ## API Usage
 
@@ -95,9 +119,35 @@ streamlit run app/streamlit_app.py
   "citation_support_coverage": 1.0,
   "unsupported_claims": [],
   "missing_facts_from_context": [],
+  "failure_modes": [],
+  "citation_issues": [],
   "diagnostic_report": "Trace rag-good-001 has low hallucination risk..."
 }
 ```
+
+## Failure Taxonomy
+
+The deterministic evaluator classifies common RAG and agent failures:
+
+- `unsupported_claim`: answer claims are not supported by retrieved context
+- `missing_retrieval`: reference facts are absent from retrieved chunks
+- `irrelevant_retrieval`: retrieved chunks have low query relevance
+- `citation_mismatch`: citations are missing, weak, or point to the wrong chunk
+- `answer_drift`: answer content diverges from the reference answer
+- `overconfident_refusal`: answer refuses despite relevant context being available
+
+## Citation Formats
+
+The citation parser resolves common formats against chunk IDs and sources:
+
+```text
+[chunk-1]
+[^chunk-1]
+(docs/vector-cache.md)
+docs/vector-cache.md:12
+```
+
+It reports whether each claim is correctly cited, uncited, weakly cited, or citing the wrong chunk.
 
 ## Architecture
 
@@ -129,16 +179,26 @@ llm-trace-inspector/
   .github/ISSUE_TEMPLATE/  # GitHub issue templates
 ```
 
+## Example Traces
+
+- `rag_trace_good.json`: grounded answer with useful citations
+- `rag_trace_hallucinated.json`: unsupported compliance and replication claims
+- `missing_context.json`: retriever missed a necessary fact
+- `irrelevant_chunks.json`: retrieved context does not match the query
+- `bad_citations.json`: answer content is supported but cites the wrong chunk
+- `agent_tool_error.json`: agent answered despite a failed tool lookup
+- `partially_grounded_answer.json`: answer mixes supported and unsupported claims
+
 ## Roadmap
 
 - Good first issue: add more example traces for common RAG failures
-- Good first issue: add CSV export for batch evaluations
+- Good first issue: add JSON schema docs for trace producers
 - Good first issue: improve citation parsing for `source:page` formats
-- Add batch eval command for directories of traces
+- Add SARIF export for GitHub code scanning annotations
 - Add pytest plugin for regression testing RAG pipelines
 - Add integrations for LangChain, LlamaIndex, Haystack, and OpenTelemetry traces
 - Add semantic similarity backends for embeddings-based scoring
-- Add HTML report export for CI artifacts
+- Add side-by-side diff view for reference answer drift
 
 ## Contributing
 

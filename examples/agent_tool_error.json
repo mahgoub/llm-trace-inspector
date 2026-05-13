@@ -1,0 +1,19 @@
+{
+  "trace_id": "agent-tool-error-001",
+  "user_query": "What was the latest failed payment reason for customer cus_123?",
+  "retrieved_context": [
+    {
+      "id": "tool-1",
+      "source": "stripe.lookup_customer",
+      "text": "Tool error: customer cus_123 was not found because the request used the staging Stripe account."
+    },
+    {
+      "id": "chunk-1",
+      "source": "runbook/payments.md",
+      "text": "If a payment lookup hits staging by mistake, retry the lookup against production before answering customer-specific questions."
+    }
+  ],
+  "llm_answer": "The latest failed payment reason for cus_123 was insufficient funds.",
+  "reference_answer": "The trace does not contain the production failed payment reason. The agent should retry the lookup against production."
+}
+
