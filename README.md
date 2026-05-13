@@ -13,7 +13,7 @@ LLM apps fail in ways normal logs do not explain. A model can answer fluently wh
 
 ## Demo
 
-![Demo GIF placeholder](docs/demo-placeholder.gif)
+![Demo placeholder](docs/demo-placeholder.svg)
 
 ## Features
 
