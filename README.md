@@ -13,7 +13,7 @@ LLM apps fail in ways normal logs do not explain. A model can answer fluently wh
 
 ## Demo
 
-![Demo placeholder](docs/demo-placeholder.svg)
+![LLM Trace Inspector demo](docs/demo.gif)
 
 ## Features
 
