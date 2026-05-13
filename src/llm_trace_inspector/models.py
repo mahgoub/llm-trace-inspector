@@ -72,3 +72,4 @@ class BatchSummary(BaseModel):
     average_hallucination_risk: float = Field(ge=0.0, le=1.0)
     average_relevance: float = Field(ge=0.0, le=1.0)
     failed_trace_ids: list[str] = Field(default_factory=list)
+    threshold_failures: dict[str, list[str]] = Field(default_factory=dict)

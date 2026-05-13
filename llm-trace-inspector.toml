@@ -1,0 +1,5 @@
+[thresholds]
+max_risk = 0.60
+min_groundedness = 0.70
+min_citation_coverage = 0.50
+

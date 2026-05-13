@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mahgoub/llm-trace-inspector/schema/trace.schema.json",
+  "title": "LLM Trace Inspector Trace",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["trace_id", "user_query", "retrieved_context", "llm_answer"],
+  "properties": {
+    "trace_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable trace identifier."
+    },
+    "user_query": {
+      "type": "string",
+      "minLength": 1
+    },
+    "retrieved_context": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "text"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Stable chunk identifier used in citations and rankings."
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source": {
+            "type": ["string", "null"]
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    "llm_answer": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reference_answer": {
+      "type": ["string", "null"]
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}
+

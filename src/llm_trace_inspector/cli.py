@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import json
+from importlib.resources import files
 from pathlib import Path
 
 import typer
+from jsonschema import Draft202012Validator
 from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
+from llm_trace_inspector.config import load_config, threshold_failures
 from llm_trace_inspector.evaluator import EvaluatorConfig, TraceEvaluator
 from llm_trace_inspector.io import load_trace, write_json
 from llm_trace_inspector.reports import summarize_batch, write_csv, write_html, write_jsonl
@@ -22,11 +25,26 @@ def eval_trace(
     output: Path | None = typer.Option(None, "--output", "-o", help="Write full JSON result to a file."),
     html: Path | None = typer.Option(None, "--html", help="Write an HTML report to a file."),
     max_risk: float | None = typer.Option(None, "--max-risk", help="Exit non-zero if hallucination risk is above this value."),
+    min_groundedness: float | None = typer.Option(None, "--min-groundedness", help="Exit non-zero if groundedness is below this value."),
+    min_citation_coverage: float | None = typer.Option(None, "--min-citation-coverage", help="Exit non-zero if citation coverage is below this value."),
+    config: Path | None = typer.Option(None, "--config", "-c", exists=True, readable=True, help="TOML config file with thresholds."),
     llm_judge: bool = typer.Option(False, "--llm-judge", help="Enable optional LLM-as-judge pass."),
     judge_model: str = typer.Option("gpt-4o-mini", "--judge-model", help="Judge model name."),
     judge_provider: str = typer.Option("openai-compatible", "--judge-provider", help="Judge provider label."),
     judge_api_base: str = typer.Option("https://api.openai.com/v1", "--judge-api-base", help="OpenAI-compatible API base URL."),
 ) -> None:
+    inspector_config = load_config(config)
+    thresholds = inspector_config.thresholds.model_copy(
+        update={
+            "max_risk": max_risk if max_risk is not None else inspector_config.thresholds.max_risk,
+            "min_groundedness": min_groundedness
+            if min_groundedness is not None
+            else inspector_config.thresholds.min_groundedness,
+            "min_citation_coverage": min_citation_coverage
+            if min_citation_coverage is not None
+            else inspector_config.thresholds.min_citation_coverage,
+        }
+    )
     trace = load_trace(trace_path)
     result = TraceEvaluator(
         EvaluatorConfig(
@@ -66,11 +84,11 @@ def eval_trace(
     if html:
         write_html(html, [result])
         console.print(f"Wrote HTML report to {html}")
-    if max_risk is not None and result.hallucination_risk_score > max_risk:
-        console.print(
-            f"\n[bold red]Failed threshold[/bold red]: hallucination risk "
-            f"{result.hallucination_risk_score:.3f} > {max_risk:.3f}"
-        )
+    failures = threshold_failures(result, thresholds)
+    if failures:
+        console.print("\n[bold red]Failed thresholds[/bold red]")
+        for failure in failures:
+            console.print(f"- {failure}")
         raise typer.Exit(1)
     if not output and not html:
         console.print("\n[dim]Use --output result.json to save the full machine-readable report.[/dim]")
@@ -83,16 +101,58 @@ def json_eval(trace_path: Path = typer.Argument(..., exists=True, readable=True)
     console.print(json.dumps(result.model_dump(), indent=2))
 
 
+@app.command("validate")
+def validate_trace(
+    trace_path: Path = typer.Argument(..., exists=True, readable=True, help="Path to a trace JSON file."),
+    schema_path: Path | None = typer.Option(
+        None,
+        "--schema",
+        help="JSON Schema to validate against. Defaults to the packaged trace schema.",
+    ),
+) -> None:
+    data = json.loads(trace_path.read_text(encoding="utf-8"))
+    if schema_path is None:
+        schema = json.loads(
+            files("llm_trace_inspector").joinpath("schema/trace.schema.json").read_text(encoding="utf-8")
+        )
+    else:
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    errors = sorted(Draft202012Validator(schema).iter_errors(data), key=lambda error: list(error.path))
+    if errors:
+        console.print(f"[bold red]Invalid trace[/bold red]: {trace_path}")
+        for error in errors:
+            location = ".".join(str(part) for part in error.path) or "<root>"
+            console.print(f"- {location}: {error.message}")
+        raise typer.Exit(1)
+    load_trace(trace_path)
+    console.print(f"[bold green]Valid trace[/bold green]: {trace_path}")
+
+
 @app.command("eval-dir")
 def eval_dir(
     traces_dir: Path = typer.Argument(..., exists=True, file_okay=False, readable=True, help="Directory of trace JSON files."),
     output_dir: Path = typer.Option(Path("reports"), "--output-dir", "-o", help="Directory for batch artifacts."),
     max_risk: float | None = typer.Option(None, "--max-risk", help="Mark traces above this hallucination risk as failed and exit non-zero."),
+    min_groundedness: float | None = typer.Option(None, "--min-groundedness", help="Mark traces below this groundedness as failed."),
+    min_citation_coverage: float | None = typer.Option(None, "--min-citation-coverage", help="Mark traces below this citation coverage as failed."),
+    config: Path | None = typer.Option(None, "--config", "-c", exists=True, readable=True, help="TOML config file with thresholds."),
     llm_judge: bool = typer.Option(False, "--llm-judge", help="Enable optional LLM-as-judge pass."),
     judge_model: str = typer.Option("gpt-4o-mini", "--judge-model", help="Judge model name."),
     judge_provider: str = typer.Option("openai-compatible", "--judge-provider", help="Judge provider label."),
     judge_api_base: str = typer.Option("https://api.openai.com/v1", "--judge-api-base", help="OpenAI-compatible API base URL."),
 ) -> None:
+    inspector_config = load_config(config)
+    thresholds = inspector_config.thresholds.model_copy(
+        update={
+            "max_risk": max_risk if max_risk is not None else inspector_config.thresholds.max_risk,
+            "min_groundedness": min_groundedness
+            if min_groundedness is not None
+            else inspector_config.thresholds.min_groundedness,
+            "min_citation_coverage": min_citation_coverage
+            if min_citation_coverage is not None
+            else inspector_config.thresholds.min_citation_coverage,
+        }
+    )
     paths = sorted(traces_dir.glob("*.json"))
     if not paths:
         console.print(f"[bold red]No JSON traces found in {traces_dir}[/bold red]")
@@ -107,7 +167,12 @@ def eval_dir(
         )
     )
     results = [evaluator.evaluate(load_trace(path)) for path in paths]
-    summary = summarize_batch(results, max_risk=max_risk)
+    failures_by_trace = {
+        result.trace_id: failures
+        for result in results
+        if (failures := threshold_failures(result, thresholds))
+    }
+    summary = summarize_batch(results, threshold_failures=failures_by_trace)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     write_json(output_dir / "summary.json", summary.model_dump())
@@ -136,10 +201,9 @@ def eval_dir(
     )
 
     if summary.failed_trace_ids:
-        console.print(
-            f"[bold red]Failed threshold[/bold red]: {', '.join(summary.failed_trace_ids)} "
-            f"exceeded --max-risk {max_risk:.3f}"
-        )
+        console.print("[bold red]Failed thresholds[/bold red]")
+        for trace_id, failures in summary.threshold_failures.items():
+            console.print(f"- {trace_id}: {'; '.join(failures)}")
         raise typer.Exit(1)
 
 

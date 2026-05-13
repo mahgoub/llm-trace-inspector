@@ -1,0 +1,57 @@
+name: LLM Trace Inspector
+description: Evaluate RAG and agent trace JSON files in GitHub Actions.
+author: mahgoub soliman
+
+inputs:
+  traces:
+    description: Directory containing trace JSON files.
+    required: false
+    default: examples
+  max-risk:
+    description: Maximum allowed hallucination risk.
+    required: false
+    default: "0.60"
+  min-groundedness:
+    description: Minimum required groundedness score.
+    required: false
+    default: ""
+  min-citation-coverage:
+    description: Minimum required citation/support coverage.
+    required: false
+    default: ""
+  output-dir:
+    description: Directory where report artifacts will be written.
+    required: false
+    default: reports
+  python-version:
+    description: Python version used to run the evaluator.
+    required: false
+    default: "3.12"
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+    - name: Install LLM Trace Inspector
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install -e "$GITHUB_ACTION_PATH"
+    - name: Evaluate traces
+      shell: bash
+      run: |
+        args=(
+          eval-dir "${{ inputs.traces }}"
+          --output-dir "${{ inputs.output-dir }}"
+          --max-risk "${{ inputs.max-risk }}"
+        )
+        if [ -n "${{ inputs.min-groundedness }}" ]; then
+          args+=(--min-groundedness "${{ inputs.min-groundedness }}")
+        fi
+        if [ -n "${{ inputs.min-citation-coverage }}" ]; then
+          args+=(--min-citation-coverage "${{ inputs.min-citation-coverage }}")
+        fi
+        llm-trace-inspector "${args[@]}"

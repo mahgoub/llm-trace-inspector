@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "llm-trace-inspector"
-version = "0.2.0"
+version = "0.3.0"
 description = "Debug RAG and agent outputs with groundedness, relevance, support coverage, and hallucination diagnostics."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -28,6 +28,7 @@ dependencies = [
   "uvicorn[standard]>=0.30",
   "rich>=13.7",
   "httpx>=0.27",
+  "jsonschema>=4.0",
   "streamlit>=1.36",
 ]
 
@@ -43,6 +44,9 @@ llm-trace-inspector = "llm_trace_inspector.cli:app"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+llm_trace_inspector = ["schema/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

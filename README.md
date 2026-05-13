@@ -1,6 +1,7 @@
 # LLM Trace Inspector
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+[![CI](https://github.com/mahgoub/llm-trace-inspector/actions/workflows/ci.yml/badge.svg)](https://github.com/mahgoub/llm-trace-inspector/actions/workflows/ci.yml)
 [![FastAPI](https://img.shields.io/badge/API-FastAPI-009688.svg)](https://fastapi.tiangolo.com/)
 [![CLI](https://img.shields.io/badge/CLI-Typer-black.svg)](https://typer.tiangolo.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -41,6 +42,7 @@ pip install -e ".[dev]"
 llm-trace-inspector eval examples/rag_trace_good.json
 llm-trace-inspector eval examples/rag_trace_hallucinated.json --output result.json
 llm-trace-inspector eval examples/rag_trace_hallucinated.json --max-risk 0.4
+llm-trace-inspector validate examples/rag_trace_good.json
 llm-trace-inspector eval examples/rag_trace_good.json --html report.html
 llm-trace-inspector eval-dir examples/ --output-dir reports --max-risk 0.6
 ```
@@ -66,12 +68,53 @@ Use LLM Trace Inspector as a regression gate for RAG traces:
     llm-trace-inspector eval-dir examples/ --output-dir reports --max-risk 0.45
 ```
 
+Or use the reusable GitHub Action:
+
+```yaml
+- uses: actions/checkout@v4
+- uses: mahgoub/llm-trace-inspector@v0.3.0
+  with:
+    traces: examples
+    max-risk: "0.45"
+    min-groundedness: "0.70"
+    min-citation-coverage: "0.50"
+    output-dir: reports
+    python-version: "3.12"
+```
+
 The command exits non-zero when any trace exceeds `--max-risk`, while still writing:
 
 - `summary.json`
 - `results.jsonl`
 - `results.csv`
 - `report.html`
+
+## Config File
+
+Thresholds can live in `llm-trace-inspector.toml`:
+
+```toml
+[thresholds]
+max_risk = 0.60
+min_groundedness = 0.70
+min_citation_coverage = 0.50
+```
+
+Use a custom config:
+
+```bash
+llm-trace-inspector eval-dir traces/regression --config eval.toml
+```
+
+## Trace Validation
+
+Trace files can be validated before evaluation:
+
+```bash
+llm-trace-inspector validate examples/rag_trace_good.json
+```
+
+The JSON Schema lives at `schema/trace.schema.json` and is suitable for editor validation, CI checks, and trace producer integrations.
 
 ## API Usage
 
@@ -157,8 +200,11 @@ It reports whether each claim is correctly cited, uncited, weakly cited, or citi
 
 ```text
 llm-trace-inspector/
+  action.yml                # Reusable GitHub Action
   app/                     # Streamlit frontend
+  schema/                  # Trace JSON Schema
   examples/                # Example trace JSON files
+  docs/                    # Demo, architecture, release notes
   src/llm_trace_inspector/ # Core package, API, CLI, evaluator
   tests/                   # Unit and API tests
   .github/ISSUE_TEMPLATE/  # GitHub issue templates
